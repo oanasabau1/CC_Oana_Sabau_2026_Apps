@@ -257,13 +257,36 @@ Setup steps:
    - Add:
      - `DOCKERHUB_USERNAME` = your Docker Hub username
      - `DOCKERHUB_TOKEN` = your Docker Hub PAT
-4. Trigger publish:
+4. Add repository variables for frontend build config:
+   - GitHub repo -> Settings -> Secrets and variables -> Actions -> Variables
+   - Add:
+     - `REACT_APP_API_BASE`
+     - `REACT_APP_COGNITO_AUTHORITY`
+     - `REACT_APP_COGNITO_CLIENT_ID`
+     - `REACT_APP_COGNITO_DOMAIN`
+     - `REACT_APP_OIDC_REDIRECT_URI`
+     - `REACT_APP_OIDC_SCOPE` (optional, default: `openid email profile`)
+     - `REACT_APP_LOGOUT_URI`
+5. Trigger publish:
    - Push to `main`, or run `.github/workflows/docker-publish.yml` via `workflow_dispatch`.
 
 Required GitHub secrets:
 
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_TOKEN`
+
+Required GitHub variables (frontend image build):
+
+- `REACT_APP_API_BASE`
+- `REACT_APP_COGNITO_AUTHORITY`
+- `REACT_APP_COGNITO_CLIENT_ID`
+- `REACT_APP_COGNITO_DOMAIN`
+- `REACT_APP_OIDC_REDIRECT_URI`
+- `REACT_APP_LOGOUT_URI`
+
+Optional GitHub variable:
+
+- `REACT_APP_OIDC_SCOPE` (default: `openid email profile`)
 
 Workflow:
 

@@ -67,6 +67,14 @@ jobs:
           - service: frontend
             context: ./frontend
             image: tucn-cc-frontend
+    env:
+      REACT_APP_API_BASE: ${{ vars.REACT_APP_API_BASE }}
+      REACT_APP_COGNITO_AUTHORITY: ${{ vars.REACT_APP_COGNITO_AUTHORITY }}
+      REACT_APP_COGNITO_CLIENT_ID: ${{ vars.REACT_APP_COGNITO_CLIENT_ID }}
+      REACT_APP_COGNITO_DOMAIN: ${{ vars.REACT_APP_COGNITO_DOMAIN }}
+      REACT_APP_OIDC_REDIRECT_URI: ${{ vars.REACT_APP_OIDC_REDIRECT_URI }}
+      REACT_APP_OIDC_SCOPE: ${{ vars.REACT_APP_OIDC_SCOPE }}
+      REACT_APP_LOGOUT_URI: ${{ vars.REACT_APP_LOGOUT_URI }}
 
     steps:
       - name: Checkout
@@ -86,8 +94,29 @@ jobs:
         shell: bash
         run: echo "value=sha-$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
-        id: build
+      - name: Validate frontend build variables
+        if: matrix.service == 'frontend'
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            REACT_APP_API_BASE
+            REACT_APP_COGNITO_AUTHORITY
+            REACT_APP_COGNITO_CLIENT_ID
+            REACT_APP_COGNITO_DOMAIN
+            REACT_APP_OIDC_REDIRECT_URI
+            REACT_APP_LOGOUT_URI
+          )
+          for key in "${required[@]}"; do
+            if [ -z "${!key:-}" ]; then
+              echo "Missing required GitHub variable: $key" >&2
+              exit 1
+            fi
+          done
+
+      - name: Build and push backend
+        id: build_backend
+        if: matrix.service == 'backend'
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -96,11 +125,41 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-      - name: Show published image
+      - name: Build and push frontend
+        id: build_frontend
+        if: matrix.service == 'frontend'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:${{ steps.tag.outputs.value }}
+          build-args: |
+            REACT_APP_API_BASE=${{ env.REACT_APP_API_BASE }}
+            REACT_APP_COGNITO_AUTHORITY=${{ env.REACT_APP_COGNITO_AUTHORITY }}
+            REACT_APP_COGNITO_CLIENT_ID=${{ env.REACT_APP_COGNITO_CLIENT_ID }}
+            REACT_APP_COGNITO_DOMAIN=${{ env.REACT_APP_COGNITO_DOMAIN }}
+            REACT_APP_OIDC_REDIRECT_URI=${{ env.REACT_APP_OIDC_REDIRECT_URI }}
+            REACT_APP_OIDC_SCOPE=${{ env.REACT_APP_OIDC_SCOPE || 'openid email profile' }}
+            REACT_APP_LOGOUT_URI=${{ env.REACT_APP_LOGOUT_URI }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Show published backend image
+        if: matrix.service == 'backend'
         shell: bash
         run: |
           echo "### Published: ${{ matrix.service }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Image digest: \`${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image digest: \`${{ steps.build_backend.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image: \`${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:${{ steps.tag.outputs.value }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Show published frontend image
+        if: matrix.service == 'frontend'
+        shell: bash
+        run: |
+          echo "### Published: ${{ matrix.service }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image digest: \`${{ steps.build_frontend.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Image: \`${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:${{ steps.tag.outputs.value }}\`" >> "$GITHUB_STEP_SUMMARY"
