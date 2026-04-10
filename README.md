@@ -1,6 +1,6 @@
 # Cloud Computing Lab
 
-Student demo project for:
+Demo project for:
 
 - React frontend authentication with AWS Cognito
 - Azure Functions backend JWT verification
@@ -12,6 +12,7 @@ Student demo project for:
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [Mandatory setup](#mandatory-setup)
 - [Reference links](#reference-links)
 - [Architecture](#architecture)
@@ -27,6 +28,68 @@ Student demo project for:
 - [Appendix B: Docker Hub Publish Setup (Mandatory)](#appendix-b-docker-hub-publish-setup-mandatory)
 - [Appendix C: Azure App Service Deploy (Containers)](#appendix-c-azure-app-service-deploy-containers)
 - [License](#license)
+
+## Quick Start
+
+Use this repository as the **second half** of the deployment tutorial.
+
+Follow this order:
+
+1. Deploy Azure infrastructure from `TUCN_CC_Apps_Infra`.
+2. Read the OpenTofu outputs from that repo.
+3. Add the required secrets and variables in this GitHub repository.
+4. Validate the app locally with Docker Compose.
+5. Push to `main` and let GitHub Actions publish the images and update Azure.
+
+Before using this repo for Azure deployment, make sure these values already exist in `TUCN_CC_Apps_Infra`:
+
+- `frontend_url`
+- `backend_url`
+- `resource_group_name`
+- `app_service_name`
+- `function_app_name`
+- `github_oidc_client_id`
+- `github_oidc_tenant_id`
+- `github_oidc_subscription_id`
+
+GitHub settings required in `TUCN_CC_Apps`:
+
+- Secrets:
+  - `DOCKERHUB_USERNAME`
+  - `DOCKERHUB_TOKEN`
+- Variables:
+  - `AZURE_CLIENT_ID`
+  - `AZURE_TENANT_ID`
+  - `AZURE_SUBSCRIPTION_ID`
+  - `AZURE_RESOURCE_GROUP`
+  - `AZURE_APP_SERVICE_NAME`
+  - `AZURE_FUNCTION_APP_NAME`
+  - `REACT_APP_API_BASE`
+  - `REACT_APP_COGNITO_AUTHORITY`
+  - `REACT_APP_COGNITO_CLIENT_ID`
+  - `REACT_APP_COGNITO_DOMAIN`
+  - `REACT_APP_OIDC_REDIRECT_URI`
+  - `REACT_APP_OIDC_SCOPE`
+  - `REACT_APP_LOGOUT_URI`
+
+Recommended mapping from infra outputs:
+
+- `AZURE_CLIENT_ID` = `github_oidc_client_id`
+- `AZURE_TENANT_ID` = `github_oidc_tenant_id`
+- `AZURE_SUBSCRIPTION_ID` = `github_oidc_subscription_id`
+- `AZURE_RESOURCE_GROUP` = `resource_group_name`
+- `AZURE_APP_SERVICE_NAME` = `app_service_name`
+- `AZURE_FUNCTION_APP_NAME` = `function_app_name`
+- `REACT_APP_API_BASE` = `backend_url`
+- `REACT_APP_OIDC_REDIRECT_URI` = `frontend_url`
+- `REACT_APP_LOGOUT_URI` = `frontend_url`
+
+Once those are configured:
+
+1. Run the app locally.
+2. Commit and push to `main`.
+3. Verify GitHub Actions built and pushed both images.
+4. Verify Azure App Service and Azure Function App were updated.
 
 ## Reference links
 
@@ -218,7 +281,7 @@ https://cognito-idp.<region>.amazonaws.com/<user-pool-id>/.well-known/jwks.json
 7. Verify Docker Hub tags:
    - `<DOCKERHUB_USERNAME>/tucn-cc-backend-api:sha-<commit>`
    - `<DOCKERHUB_USERNAME>/tucn-cc-frontend:sha-<commit>`
-8. Update Azure App Service/Lambda image references to the new SHA tags.
+8. Verify Azure App Service and Function App were updated to the new SHA tags.
 
 ## Project governance
 
@@ -239,8 +302,8 @@ Minimum setup for this project:
 4. App client OAuth settings:
    - Grant type: Authorization code
    - Scopes: `openid email profile`
-   - Callback URL: `http://localhost:3000`
-   - Logout URL: `http://localhost:3000`
+   - Callback URLs: `http://localhost:3000`, `https://app-tucn-cc-dev-<suffix>.azurewebsites.net`
+   - Logout URLs: `http://localhost:3000`, `https://app-tucn-cc-dev-<suffix>.azurewebsites.net`
 5. Create test users and assign groups.
 6. For `user` accounts, set `custom:device_id` (for example `E-001`).
 
@@ -251,66 +314,101 @@ Setup steps:
 1. Create a Docker Hub account:
    - https://hub.docker.com/
 2. Create a Docker Hub access token (PAT):
-   - Docker Hub -> Account Settings -> Personal access tokens -> Generate new token
+   - Docker Hub → Account Settings → Personal access tokens → Generate new token
    - Save the token value securely (you will not be able to view it again).
-3. Add repository secrets in GitHub:
-   - GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret
-   - Add:
-     - `DOCKERHUB_USERNAME` = your Docker Hub username
-     - `DOCKERHUB_TOKEN` = your Docker Hub PAT
-4. Add repository variables for frontend build config:
-   - GitHub repo -> Settings -> Secrets and variables -> Actions -> Variables
-   - Add:
-     - `REACT_APP_API_BASE`
-     - `REACT_APP_COGNITO_AUTHORITY`
-     - `REACT_APP_COGNITO_CLIENT_ID`
-     - `REACT_APP_COGNITO_DOMAIN`
-     - `REACT_APP_OIDC_REDIRECT_URI`
-     - `REACT_APP_OIDC_SCOPE` (optional, default: `openid email profile`)
-     - `REACT_APP_LOGOUT_URI`
+3. Add repository **secrets** in GitHub (Settings → Secrets and variables → Actions → Secrets):
+
+   | Secret               | Value                    |
+   | -------------------- | ------------------------ |
+   | `DOCKERHUB_USERNAME` | your Docker Hub username |
+   | `DOCKERHUB_TOKEN`    | your Docker Hub PAT      |
+
+4. Add repository **variables** for frontend build config (Settings → Secrets and variables → Actions → Variables).
+   Use your real Azure URLs for production — **not localhost**:
+
+   | Variable                      | Production value                                            |
+   | ----------------------------- | ----------------------------------------------------------- |
+   | `REACT_APP_API_BASE`          | `https://func-tucn-cc-dev-<suffix>.azurewebsites.net`       |
+   | `REACT_APP_COGNITO_AUTHORITY` | `https://cognito-idp.<region>.amazonaws.com/<user-pool-id>` |
+   | `REACT_APP_COGNITO_CLIENT_ID` | your Cognito app client ID                                  |
+   | `REACT_APP_COGNITO_DOMAIN`    | `https://<domain>.auth.<region>.amazoncognito.com`          |
+   | `REACT_APP_OIDC_REDIRECT_URI` | `https://app-tucn-cc-dev-<suffix>.azurewebsites.net`        |
+   | `REACT_APP_LOGOUT_URI`        | `https://app-tucn-cc-dev-<suffix>.azurewebsites.net`        |
+   | `REACT_APP_OIDC_SCOPE`        | `openid email profile`                                      |
+
 5. Trigger publish:
    - Push to `main`, or run `.github/workflows/docker-publish.yml` via `workflow_dispatch`.
 
-Required GitHub secrets:
-
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
-
-Required GitHub variables (frontend image build):
-
-- `REACT_APP_API_BASE`
-- `REACT_APP_COGNITO_AUTHORITY`
-- `REACT_APP_COGNITO_CLIENT_ID`
-- `REACT_APP_COGNITO_DOMAIN`
-- `REACT_APP_OIDC_REDIRECT_URI`
-- `REACT_APP_LOGOUT_URI`
-
-Optional GitHub variable:
-
-- `REACT_APP_OIDC_SCOPE` (default: `openid email profile`)
-
-Workflow:
-
-- `.github/workflows/docker-publish.yml`
-
 Published images:
 
-- `<DOCKERHUB_USERNAME>/tucn-cc-backend-api`
-- `<DOCKERHUB_USERNAME>/tucn-cc-frontend`
+- `<DOCKERHUB_USERNAME>/tucn-cc-backend-api:sha-<commit>`
+- `<DOCKERHUB_USERNAME>/tucn-cc-frontend:sha-<commit>`
 
-## Appendix C: Azure App Service Deploy (Containers)
+## Appendix C: Azure CI/CD Deploy Setup
 
-Backend app settings:
+The `deploy` job in the workflow automatically updates the running container images in Azure after every push to `main`.
 
-- Image: `<DOCKERHUB_USERNAME>/tucn-cc-backend-api:sha-<commit>`
-- `WEBSITES_PORT=80`
-- Env vars: `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `CORS_ORIGIN`
+Recommended setup:
 
-Frontend app settings:
+1. Deploy infrastructure locally from `TUCN_CC_Apps_Infra`.
+2. Optionally enable `create_github_oidc = true` there if you want GitHub Actions in `TUCN_CC_Apps` to update Azure automatically.
+3. Copy the resulting Azure values and resource names into the GitHub settings for this repo.
 
-- Image: `<DOCKERHUB_USERNAME>/tucn-cc-frontend:sha-<commit>`
-- Port: `80`
-- Update frontend API base for production (not localhost)
+### Required GitHub configuration for `TUCN_CC_Apps`
+
+Add these in `TUCN_CC_Apps`:
+
+- **Secrets**:
+  - `DOCKERHUB_USERNAME`
+  - `DOCKERHUB_TOKEN`
+
+- **Variables**:
+  - `REACT_APP_API_BASE`
+  - `REACT_APP_COGNITO_AUTHORITY`
+  - `REACT_APP_COGNITO_CLIENT_ID`
+  - `REACT_APP_COGNITO_DOMAIN`
+  - `REACT_APP_OIDC_REDIRECT_URI`
+  - `REACT_APP_LOGOUT_URI`
+  - `REACT_APP_OIDC_SCOPE`
+  - `AZURE_CLIENT_ID`
+  - `AZURE_TENANT_ID`
+  - `AZURE_SUBSCRIPTION_ID`
+  - `AZURE_RESOURCE_GROUP`
+  - `AZURE_APP_SERVICE_NAME`
+  - `AZURE_FUNCTION_APP_NAME`
+
+**Step 2** — Add these **variables** (not secrets) to this repo (Settings → Secrets and variables → Actions → Variables):
+
+| Variable                  | Value                                     |
+| ------------------------- | ----------------------------------------- |
+| `AZURE_CLIENT_ID`         | `tofu output github_oidc_client_id`       |
+| `AZURE_TENANT_ID`         | `tofu output github_oidc_tenant_id`       |
+| `AZURE_SUBSCRIPTION_ID`   | `tofu output github_oidc_subscription_id` |
+| `AZURE_RESOURCE_GROUP`    | `rg-tucn-cc-dev-<suffix>`                 |
+| `AZURE_APP_SERVICE_NAME`  | `app-tucn-cc-dev-<suffix>`                |
+| `AZURE_FUNCTION_APP_NAME` | `func-tucn-cc-dev-<suffix>`               |
+
+**Step 3** — Push to `main`. The workflow will:
+
+1. Run lint/tests on both services
+2. Validate that all required GitHub secrets and variables are present
+3. Build and push both Docker images to Docker Hub with tag `sha-<commit>`
+4. Update the running containers in Azure App Service and Function App
+5. Restart both services to pull the new images
+6. Run a basic smoke check against both public Azure URLs
+
+Also update your Cognito App Client to add the Azure callback and logout URLs:
+
+- Callback URL: `https://app-tucn-cc-dev-<suffix>.azurewebsites.net`
+- Logout URL: `https://app-tucn-cc-dev-<suffix>.azurewebsites.net`
+
+### Troubleshooting
+
+- `AADSTS700213` in `azure/login` means the federated credential subject does not match the actual GitHub owner/repo. Re-check the OIDC settings in `TUCN_CC_Apps_Infra` and re-apply there.
+- If the workflow fails immediately with a missing-setting error, add the missing GitHub secret or variable named in the job log.
+- If Docker push fails, verify `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are present as repository secrets in `TUCN_CC_Apps`.
+- If the frontend deploys but cannot call the backend, verify `REACT_APP_API_BASE` points to `https://func-tucn-cc-dev-<suffix>.azurewebsites.net`.
+- If Cognito login redirects fail, verify the callback and logout URLs exactly match the Azure frontend URL with the chosen suffix.
 
 ## License - 2
 
