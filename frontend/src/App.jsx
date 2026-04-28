@@ -174,10 +174,55 @@ function App() {
 
             <section className="card card-wide">
               <h2>Data API Response</h2>
+
               {loadingData ? (
                 <p className="muted">Loading data...</p>
               ) : dataResponse ? (
-                <pre className="code-block">{JSON.stringify(dataResponse, null, 2)}</pre>
+                <>
+                  <p className="muted">
+                    Role: <strong>{dataResponse.role}</strong> | Device:{" "}
+                    <strong>{dataResponse.device_id || "All Devices"}</strong>
+                  </p>
+
+                  <p className="muted" style={{ marginTop: "6px" }}>
+                    Showing {dataResponse.data?.length || 0} events
+                  </p>
+
+                  {dataResponse.data?.length > 0 ? (
+                    <div style={{ overflowX: "auto", marginTop: "12px" }}>
+                      <table className="data-table">
+                        <thead>
+                        <tr>
+                          <th>Device ID</th>
+                          <th>Timestamp</th>
+                          <th>kWh</th>
+                          <th>Location</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {dataResponse.data.map((row, index) => (
+                          <tr key={index}>
+                            <td>{row.device_id}</td>
+                            <td>
+                              {row.timestamp
+                                ? new Date(row.timestamp).toLocaleString()
+                                : "-"}
+                            </td>
+                            <td>
+                              {typeof row.kwh === "number"
+                                ? row.kwh.toFixed(2)
+                                : "-"}
+                            </td>
+                            <td>{row.location || "-"}</td>
+                          </tr>
+                        ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="muted">No events found.</p>
+                  )}
+                </>
               ) : (
                 <p className="muted">No data loaded yet.</p>
               )}

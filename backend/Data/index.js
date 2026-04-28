@@ -6,10 +6,38 @@ const {
 } = require("../shared/auth");
 const { emit, finishRequest, maskDeviceId, startRequest } = require("../shared/logging");
 
-const allData = [
-  { device_id: "E-001", value: 10 },
-  { device_id: "E-002", value: 20 },
-];
+const fs = require("fs");
+const path = require("path");
+const csv = require("csv-parser");
+const csvPath = path.join(__dirname, "energy_usage_large.csv");
+console.log(csvPath);
+
+let allData;
+
+function loadCsvData() {
+  return new Promise((resolve, reject) => {
+    const results = [];
+
+    fs.createReadStream(csvPath)
+      .pipe(csv())
+      .on("data", (row) => {
+        results.push({
+          device_id: row.device_id,
+          timestamp: row.timestamp,
+          kwh: parseFloat(row.kwh),
+          location: row.location,
+        });
+      })
+      .on("end", () => {
+        console.log("CSV loaded:", results.length);
+        resolve(results);
+      })
+      .on("error", (err) => {
+        console.error("CSV error:", err);
+        reject(err);
+      });
+  });
+}
 
 module.exports = async function data(context, req) {
   const request = startRequest(context, req, "/api/data");
@@ -23,6 +51,8 @@ module.exports = async function data(context, req) {
   try {
     const auth = await authenticate(req);
     const { role, device_id } = auth.claims;
+
+    allData = await loadCsvData();
 
     let visibleData;
 
